@@ -1,0 +1,101 @@
+# version: '3.8'
+
+services:
+  # MySQL 数据库服务
+  mysql:
+    image: mysql:8.0
+    container_name: fastapi-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: app_db
+      MYSQL_USER: app_user
+      MYSQL_PASSWORD: user_password
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+      - ./mysql/conf:/etc/mysql/conf.d:ro
+    ports:
+      - "3306:3306"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Redis 缓存服务
+  redis:
+    image: redis:7.2-alpine
+    container_name: fastapi-redis
+    restart: unless-stopped
+    command: redis-server --requirepass "redis_password" --appendonly yes
+    volumes:
+      - ./redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--auth", "redis_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # RabbitMQ 消息队列服务
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: fastapi-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin_password
+      RABBITMQ_DEFAULT_VHOST: /app
+    volumes:
+      - ./rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"   # AMQP 协议端口
+      - "15672:15672" # 管理界面端口
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # FastAPI 应用服务
+  # fastapi:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: fastapi-app
+  #   restart: unless-stopped
+  #   ports:
+  #     - "8000:8000"
+  #   environment:
+  #     - DB_HOST=mysql
+  #     - DB_PORT=3306
+  #     - DB_USER=app_user
+  #     - DB_PASSWORD=user_password
+  #     - DB_NAME=app_db
+  #     - REDIS_URL=redis://:redis_password@redis:6379/0
+  #     - RABBITMQ_URL=amqp://admin:admin_password@rabbitmq:5672/app
+  #   depends_on:
+  #     mysql:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+  #   networks:
+  #     - app-network
+
+# volumes:
+#   mysql_data:
+#   redis_data:
+#   rabbitmq_data:
+
+networks:
+  app-network:
+    driver: bridge
