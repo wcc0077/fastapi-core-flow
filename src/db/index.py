@@ -7,7 +7,7 @@ engine = create_engine(db_url, echo=True)
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
 
-def db_session():
+async def db_session():
     session = Session(engine)
     try:
         yield session
